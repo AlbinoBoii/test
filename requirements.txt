@@ -1,0 +1,13 @@
+telebot
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+pandas
+flask
+pyTelegramBotAPI
+datetime
+pandas
+requests
+schedule
+# Add any other required dependencies
