@@ -13,7 +13,7 @@ from flask import Flask, request
 
 
 # Initialize the bot with the API key
-API_KEY = "7927028459:AAGmRiqQ4sYdZ6bdLN6xokO-rWUZJt4V2Mg"
+API_KEY = "7080788214:AAGItH2x8AFszKuf4hw11o0opVPSgxEFhzM"
 bot = telebot.TeleBot(API_KEY)
 
 app = Flask(__name__)
