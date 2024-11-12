@@ -11,7 +11,6 @@ from googleapiclient.errors import HttpError
 from datetime import datetime
 from flask import Flask, request
 
-
 # Initialize the bot with the API key
 API_KEY = "7080788214:AAGItH2x8AFszKuf4hw11o0opVPSgxEFhzM"
 bot = telebot.TeleBot(API_KEY)
@@ -26,8 +25,6 @@ creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPE
 service = build('sheets', 'v4', credentials=creds)
 
 DEFAULT_RANGE = "A2:AH17"
-SHEET_NAME = ""
-SAMPLE_RANGE_NAME = ""
 
 # Set webhook URL - replace <your_render_url> with your actual Render URL
 WEBHOOK_URL = f"https://projects-s5cf.onrender.com/{API_KEY}"
@@ -35,6 +32,10 @@ WEBHOOK_URL = f"https://projects-s5cf.onrender.com/{API_KEY}"
 # Discord webhook for sending debug logs
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1303046966514810954/Tp7DYg-Fieec2e8nIVCrgSvN_rO5rQGZubcMdSNzLXgGmcY4RHp5WqGktG7bVC_RxBW-"
 
+# Dictionary to track individual user sessions
+user_sessions = {}
+
+# Functions remain unchanged, except where marked for session-specific updates.
 
 def send_debug_to_discord(message):
     """Send debugging messages to Discord."""
@@ -47,7 +48,7 @@ def send_debug_to_discord(message):
         except Exception as e:
             print(f"Error sending message to Discord: {e}")
 
-# Function to ping server for keeping Render server awake
+# Ping server function remains unchanged.
 def ping_server():
     url = "https://projects-s5cf.onrender.com"  # Use actual server URL
     try:
@@ -65,13 +66,11 @@ def run_scheduler():
         schedule.run_pending()
         time.sleep(1)
 
-# Health check route to verify bot responsiveness
 @app.route('/health-check', methods=['GET'])
 def health_check():
     send_debug_to_discord("Health check - bot responded!")  # Send to Discord
     return "Bot is responsive!", 200
 
-# Set webhook for Telegram on startup
 @app.route('/setwebhook', methods=['GET'])
 def set_webhook():
     success = bot.set_webhook(url=WEBHOOK_URL)
@@ -79,7 +78,6 @@ def set_webhook():
     send_debug_to_discord(message)  # Log to Discord
     return message, 200 if success else 500
 
-# Route to handle Telegram webhook updates
 @app.route('/' + API_KEY, methods=['POST'])
 def get_message():
     json_str = request.get_data().decode('UTF-8')
@@ -87,7 +85,6 @@ def get_message():
     bot.process_new_updates([update])
     return "!", 200
 
-# A simple route to confirm the service is running
 @app.route('/')
 def index():
     send_debug_to_discord("Bot is running!")  # Send status to Discord
@@ -104,10 +101,10 @@ def get_sheet_names(service, spreadsheet_id):
         return []
 
 # Function to fetch and clean sheet data
-def fetch_sheet_data():
+def fetch_sheet_data(sheet_range):
     sheet = service.spreadsheets()
     try:
-        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
+        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=sheet_range).execute()
         values = result.get('values', [])
         if not values:
             print("No data found in the sheet.")
@@ -121,6 +118,39 @@ def fetch_sheet_data():
     except HttpError as e:
         print(f"Error fetching data from Google Sheets: {e}")
         return pd.DataFrame()  # Return an empty DataFrame on error
+
+@bot.message_handler(commands=['start'])
+def start(message):
+    chat_id = message.chat.id
+    user_sessions[chat_id] = {"sheet_name": None, "range_name": None}  # Initialize session for the user
+    sheet_names = get_sheet_names(service, SAMPLE_SPREADSHEET_ID)
+    if sheet_names:
+        sheet_list = "\n".join(f"{i + 1}: {name}" for i, name in enumerate(sheet_names))
+        bot.reply_to(message, f"Welcome! \n\nPlease select a spreadsheet:\n\n{sheet_list}")
+        bot.register_next_step_handler(message, handle_sheet_selection)
+    else:
+        bot.reply_to(message, "No sheets found in the spreadsheet.")
+
+def handle_sheet_selection(message):
+    chat_id = message.chat.id
+    user_session = user_sessions.get(chat_id, {})
+    sheet_names = get_sheet_names(service, SAMPLE_SPREADSHEET_ID)
+
+    try:
+        sheet_index = int(message.text) - 1
+        if 0 <= sheet_index < len(sheet_names):
+            user_session["sheet_name"] = sheet_names[sheet_index]
+            user_session["range_name"] = f"{user_session['sheet_name']}!{DEFAULT_RANGE}"
+            bot.reply_to(message, f"Sheet '{user_session['sheet_name']}' selected. Now, please enter the day of the month (e.g., '9').")
+            bot.register_next_step_handler(message, fetch_roster_for_day)
+        else:
+            bot.reply_to(message, "Invalid selection. Please enter a number corresponding to a sheet.")
+            bot.register_next_step_handler(message, handle_sheet_selection)
+    except ValueError:
+        bot.reply_to(message, "Please enter a valid number corresponding to a sheet.")
+        bot.register_next_step_handler(message, handle_sheet_selection)
+
+
 
 # Keywords that indicate the cell should be treated as empty hence ignored, see ah the thing is only the top left hand coner of a merged cell show any value and the rest of the merged cell is treated as empty by the api so i had to use this hack to get around it 
 keywords_to_ignore = ["M1", "M2", "M3", "M4", "M-1", "M-2", "M-3", "M-4", "C1", "C-1", "C5", "C-5",  "M3!", "OJT", "MA", "DO", "DOIL", "OIL", "SMOKE COVER", "AMPT", "OFF"]
@@ -445,13 +475,8 @@ Flying Hours: TBC
         bot.reply_to(message, "Invalid input. Please enter a numerical day of the month or type 'back' to select a different sheet.")
         bot.register_next_step_handler(message, fetch_roster_for_day)
 
-
-
-
-
 # Remove any active webhook to avoid conflicts during startup
 bot.remove_webhook()
-
 
 # Run the Flask app with background scheduler thread
 if __name__ == "__main__":
