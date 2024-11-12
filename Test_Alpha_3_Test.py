@@ -27,7 +27,7 @@ service = build('sheets', 'v4', credentials=creds)
 DEFAULT_RANGE = "A2:AH17"
 
 # Set webhook URL - replace <your_render_url> with your actual Render URL
-WEBHOOK_URL = f"https://projects-s5cf.onrender.com/{API_KEY}"
+WEBHOOK_URL = f"https://test-phrw.onrender.com/{API_KEY}"
 
 # Discord webhook for sending debug logs
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1303046966514810954/Tp7DYg-Fieec2e8nIVCrgSvN_rO5rQGZubcMdSNzLXgGmcY4RHp5WqGktG7bVC_RxBW-"
