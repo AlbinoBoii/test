@@ -18,7 +18,7 @@ bot = telebot.TeleBot(API_KEY)
 app = Flask(__name__)
 
 # Google Sheets setup
-SERVICE_ACCOUNT_FILE = r'credentials.env'
+SERVICE_ACCOUNT_FILE = r'/etc/secrets/credentials.env'
 SAMPLE_SPREADSHEET_ID = "1EiHwDdD6dUYTRcU7UHNcm61E8X6of2SYVCWSYfWFBN0"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
